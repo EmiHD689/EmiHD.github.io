@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emilios OP Autoclicker - Lizenzen</title>
+  <style>
+    :root {
+      --bg: #f4f7fa;
+      --panel: #fff;
+      --text: #1d2734;
+      --muted: #5f6c7c;
+      --line: #dbe3ed;
+      --blue: #1d6fd8;
+      --red: #c64a3d;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    header {
+      background: #18212c;
+      color: #fff;
+      padding: 24px 32px;
+    }
+
+    h1 { margin: 0; font-size: 24px; }
+    header p { margin: 6px 0 0; color: #c4d4e5; }
+
+    main {
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 18px;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    h2 { margin: 0 0 16px; font-size: 16px; }
+    label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 13px; }
+    input, select {
+      width: 100%;
+      height: 36px;
+      border: 1px solid #bfc9d6;
+      padding: 0 10px;
+      font: inherit;
+    }
+
+    button {
+      height: 36px;
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: white;
+      padding: 0 14px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--text);
+      border-color: #bfc9d6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 160px 120px;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .settings {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th { color: var(--muted); font-weight: 600; }
+    .status { min-height: 22px; margin-top: 12px; color: var(--muted); }
+    .danger { color: var(--red); }
+
+    @media (max-width: 760px) {
+      .grid, .settings { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Emilios OP Autoclicker Lizenzen</h1>
+    <p>Keys erstellen, benennen, deaktivieren oder löschen.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>GitHub speichern</h2>
+      <div class="grid settings">
+        <div>
+          <label for="token">GitHub Token mit Contents-Schreibrecht</label>
+          <input id="token" type="password" placeholder="Token bleibt nur in deinem Browser">
+        </div>
+        <div>
+          <label for="branch">Branch</label>
+          <input id="branch" value="main">
+        </div>
+      </div>
+      <div class="actions">
+        <button id="load">Lizenzen laden</button>
+        <button id="save">Lizenzen speichern</button>
+        <button class="secondary" id="remember">Token merken</button>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <section>
+      <h2>Neuen Key erstellen</h2>
+      <div class="grid">
+        <div>
+          <label for="key">Key</label>
+          <input id="key">
+        </div>
+        <div>
+          <label for="name">Name</label>
+          <input id="name" placeholder="z. B. Emilio Laptop">
+        </div>
+        <div>
+          <label for="expires">Ablaufdatum</label>
+          <input id="expires" type="date">
+        </div>
+        <div>
+          <label for="enabled">Status</label>
+          <select id="enabled">
+            <option value="true">Aktiv</option>
+            <option value="false">Deaktiviert</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="generate">Key generieren</button>
+        <button id="add">Hinzufügen</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Keys</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Ablauf</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const repo = { owner: "EmiHD689", name: "Coding", path: "lisence/licenses.json" };
+    const state = { sha: null, licenses: [] };
+    const $ = id => document.getElementById(id);
+    const status = text => $("status").textContent = text;
+
+    function randomKey() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const part = () => Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+      return `EMILIO-${part()}-${part()}-${part()}`;
+    }
+
+    function apiUrl() {
+      return `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${repo.path}`;
+    }
+
+    function authHeaders() {
+      return {
+        Authorization: `Bearer ${$("token").value.trim()}`,
+        Accept: "application/vnd.github+json"
+      };
+    }
+
+    function render() {
+      $("rows").innerHTML = "";
+      state.licenses.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input value="${escapeHtml(item.key || "")}" data-field="key" data-index="${index}"></td>
+          <td><input value="${escapeHtml(item.name || "")}" data-field="name" data-index="${index}"></td>
+          <td>
+            <select data-field="enabled" data-index="${index}">
+              <option value="true" ${item.enabled ? "selected" : ""}>Aktiv</option>
+              <option value="false" ${!item.enabled ? "selected" : ""}>Deaktiviert</option>
+            </select>
+          </td>
+          <td><input type="date" value="${item.expiresUtc ? item.expiresUtc.slice(0, 10) : ""}" data-field="expiresUtc" data-index="${index}"></td>
+          <td><button class="secondary" data-delete="${index}">Löschen</button></td>
+        `;
+        $("rows").appendChild(tr);
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    $("rows").addEventListener("input", event => {
+      const field = event.target.dataset.field;
+      if (!field) return;
+      const item = state.licenses[Number(event.target.dataset.index)];
+      if (field === "enabled") {
+        item.enabled = event.target.value === "true";
+      } else if (field === "expiresUtc") {
+        item.expiresUtc = event.target.value ? `${event.target.value}T23:59:59Z` : null;
+      } else {
+        item[field] = event.target.value;
+      }
+    });
+
+    $("rows").addEventListener("click", event => {
+      const index = event.target.dataset.delete;
+      if (index === undefined) return;
+      state.licenses.splice(Number(index), 1);
+      render();
+    });
+
+    $("generate").onclick = () => $("key").value = randomKey();
+
+    $("add").onclick = () => {
+      state.licenses.push({
+        key: $("key").value.trim() || randomKey(),
+        name: $("name").value.trim() || "Ohne Name",
+        enabled: $("enabled").value === "true",
+        expiresUtc: $("expires").value ? `${$("expires").value}T23:59:59Z` : null
+      });
+      $("key").value = randomKey();
+      $("name").value = "";
+      $("expires").value = "";
+      render();
+    };
+
+    $("remember").onclick = () => {
+      localStorage.setItem("licenseAdminToken", $("token").value.trim());
+      status("Token lokal gespeichert.");
+    };
+
+    $("load").onclick = async () => {
+      status("Lade...");
+      const response = await fetch(`${apiUrl()}?ref=${encodeURIComponent($("branch").value.trim())}`, {
+        headers: authHeaders()
+      });
+      if (!response.ok) {
+        status("Laden fehlgeschlagen.");
+        return;
+      }
+      const data = await response.json();
+      state.sha = data.sha;
+      const json = JSON.parse(atob(data.content.replace(/\n/g, "")));
+      state.licenses = json.licenses || [];
+      render();
+      status("Geladen.");
+    };
+
+    $("save").onclick = async () => {
+      status("Speichere...");
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify({ licenses: state.licenses }, null, 2))));
+      const body = {
+        message: "Update autoclicker licenses",
+        content,
+        branch: $("branch").value.trim()
+      };
+      if (state.sha) body.sha = state.sha;
+
+      const response = await fetch(apiUrl(), {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        status("Speichern fehlgeschlagen.");
+        return;
+      }
+      const data = await response.json();
+      state.sha = data.content.sha;
+      status("Gespeichert.");
+    };
+
+    $("token").value = localStorage.getItem("licenseAdminToken") || "";
+    $("key").value = randomKey();
+    render();
+  </script>
+</body>
+</html>

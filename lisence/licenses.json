@@ -1,0 +1,10 @@
+{
+  "licenses": [
+    {
+      "key": "EMILIO-DEMO-KEY",
+      "name": "Demo",
+      "enabled": false,
+      "expiresUtc": null
+    }
+  ]
+}
