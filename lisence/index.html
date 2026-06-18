@@ -33,7 +33,7 @@
     header p { margin: 6px 0 0; color: #c4d4e5; }
 
     main {
-      max-width: 980px;
+      max-width: 1180px;
       margin: 24px auto;
       padding: 0 18px;
     }
@@ -73,7 +73,7 @@
 
     .grid {
       display: grid;
-      grid-template-columns: 1.2fr 1fr 160px 120px;
+      grid-template-columns: 1.15fr 1fr 1.55fr 150px 120px;
       gap: 14px;
       align-items: end;
     }
@@ -104,25 +104,34 @@
 
     th { color: var(--muted); font-weight: 600; }
     .status { min-height: 22px; margin-top: 12px; color: var(--muted); }
+    .hint { margin: -4px 0 16px; color: var(--muted); line-height: 1.45; }
     .danger { color: var(--red); }
+    .key-cell { min-width: 210px; }
+    .hardware-cell { min-width: 280px; }
+    .small-actions { display: flex; gap: 6px; }
 
-    @media (max-width: 760px) {
+    @media (max-width: 900px) {
       .grid, .settings { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
     }
   </style>
 </head>
 <body>
   <header>
     <h1>Emilios OP Autoclicker Lizenzen</h1>
-    <p>Keys erstellen, benennen, deaktivieren oder löschen.</p>
+    <p>Keys erstellen, an Hardware binden, deaktivieren oder löschen.</p>
   </header>
 
   <main>
     <section>
       <h2>GitHub speichern</h2>
+      <p class="hint">
+        Reihenfolge: <b>Lizenzen laden</b>, Key bearbeiten oder hinzufügen, dann <b>Lizenzen speichern</b>.
+        Der Token braucht für <b>EmiHD689/Coding</b> die Berechtigung <b>Contents: Read and write</b>.
+      </p>
       <div class="grid settings">
         <div>
-          <label for="token">GitHub Token mit Contents-Schreibrecht</label>
+          <label for="token">GitHub Token</label>
           <input id="token" type="password" placeholder="Token bleibt nur in deinem Browser">
         </div>
         <div>
@@ -140,6 +149,9 @@
 
     <section>
       <h2>Neuen Key erstellen</h2>
+      <p class="hint">
+        Hardware-ID aus dem Autoclicker-Keyfenster kopieren. Ohne Hardware-ID ist ein Key noch nicht nutzbar.
+      </p>
       <div class="grid">
         <div>
           <label for="key">Key</label>
@@ -148,6 +160,10 @@
         <div>
           <label for="name">Name</label>
           <input id="name" placeholder="z. B. Emilio Laptop">
+        </div>
+        <div>
+          <label for="hardwareId">Hardware-ID</label>
+          <input id="hardwareId" placeholder="Aus dem Autoclicker kopieren">
         </div>
         <div>
           <label for="expires">Ablaufdatum</label>
@@ -174,6 +190,7 @@
           <tr>
             <th>Key</th>
             <th>Name</th>
+            <th>Hardware-ID</th>
             <th>Status</th>
             <th>Ablauf</th>
             <th></th>
@@ -201,10 +218,12 @@
     }
 
     function authHeaders() {
-      return {
-        Authorization: `Bearer ${$("token").value.trim()}`,
-        Accept: "application/vnd.github+json"
-      };
+      const headers = { Accept: "application/vnd.github+json" };
+      const token = $("token").value.trim();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      return headers;
     }
 
     function render() {
@@ -212,8 +231,9 @@
       state.licenses.forEach((item, index) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td><input value="${escapeHtml(item.key || "")}" data-field="key" data-index="${index}"></td>
+          <td class="key-cell"><input value="${escapeHtml(item.key || "")}" data-field="key" data-index="${index}"></td>
           <td><input value="${escapeHtml(item.name || "")}" data-field="name" data-index="${index}"></td>
+          <td class="hardware-cell"><input value="${escapeHtml(item.hardwareId || "")}" data-field="hardwareId" data-index="${index}" placeholder="Nicht gebunden"></td>
           <td>
             <select data-field="enabled" data-index="${index}">
               <option value="true" ${item.enabled ? "selected" : ""}>Aktiv</option>
@@ -221,7 +241,12 @@
             </select>
           </td>
           <td><input type="date" value="${item.expiresUtc ? item.expiresUtc.slice(0, 10) : ""}" data-field="expiresUtc" data-index="${index}"></td>
-          <td><button class="secondary" data-delete="${index}">Löschen</button></td>
+          <td>
+            <div class="small-actions">
+              <button class="secondary" data-reset="${index}">Reset</button>
+              <button class="secondary" data-delete="${index}">Löschen</button>
+            </div>
+          </td>
         `;
         $("rows").appendChild(tr);
       });
@@ -245,15 +270,24 @@
         item.enabled = event.target.value === "true";
       } else if (field === "expiresUtc") {
         item.expiresUtc = event.target.value ? `${event.target.value}T23:59:59Z` : null;
+      } else if (field === "hardwareId") {
+        item.hardwareId = event.target.value.trim() || null;
       } else {
         item[field] = event.target.value;
       }
     });
 
     $("rows").addEventListener("click", event => {
-      const index = event.target.dataset.delete;
-      if (index === undefined) return;
-      state.licenses.splice(Number(index), 1);
+      const resetIndex = event.target.dataset.reset;
+      if (resetIndex !== undefined) {
+        state.licenses[Number(resetIndex)].hardwareId = null;
+        render();
+        return;
+      }
+
+      const deleteIndex = event.target.dataset.delete;
+      if (deleteIndex === undefined) return;
+      state.licenses.splice(Number(deleteIndex), 1);
       render();
     });
 
@@ -263,11 +297,13 @@
       state.licenses.push({
         key: $("key").value.trim() || randomKey(),
         name: $("name").value.trim() || "Ohne Name",
+        hardwareId: $("hardwareId").value.trim() || null,
         enabled: $("enabled").value === "true",
         expiresUtc: $("expires").value ? `${$("expires").value}T23:59:59Z` : null
       });
       $("key").value = randomKey();
       $("name").value = "";
+      $("hardwareId").value = "";
       $("expires").value = "";
       render();
     };
@@ -283,7 +319,7 @@
         headers: authHeaders()
       });
       if (!response.ok) {
-        status("Laden fehlgeschlagen.");
+        status(await githubError(response, "Laden fehlgeschlagen."));
         return;
       }
       const data = await response.json();
@@ -295,6 +331,11 @@
     };
 
     $("save").onclick = async () => {
+      if (!$("token").value.trim()) {
+        status("Zum Speichern musst du deinen GitHub Token einfügen.");
+        return;
+      }
+
       status("Speichere...");
       const content = btoa(unescape(encodeURIComponent(JSON.stringify({ licenses: state.licenses }, null, 2))));
       const body = {
@@ -310,13 +351,22 @@
         body: JSON.stringify(body)
       });
       if (!response.ok) {
-        status("Speichern fehlgeschlagen.");
+        status(await githubError(response, "Speichern fehlgeschlagen."));
         return;
       }
       const data = await response.json();
       state.sha = data.content.sha;
       status("Gespeichert.");
     };
+
+    async function githubError(response, fallback) {
+      try {
+        const data = await response.json();
+        return `${fallback} GitHub sagt: ${data.message || response.status}`;
+      } catch {
+        return `${fallback} HTTP ${response.status}`;
+      }
+    }
 
     $("token").value = localStorage.getItem("licenseAdminToken") || "";
     $("key").value = randomKey();

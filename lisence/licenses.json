@@ -1,9 +1,10 @@
 {
   "licenses": [
     {
-      "key": "EMILIOSKEY",
+      "key": "EMILIO-DEMO-KEY",
       "name": "Demo",
-      "enabled": true,
+      "hardwareId": null,
+      "enabled": false,
       "expiresUtc": null
     }
   ]
