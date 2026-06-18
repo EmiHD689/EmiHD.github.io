@@ -1,9 +1,9 @@
 {
   "licenses": [
     {
-      "key": "EMILIO-DEMO-KEY",
+      "key": "EMILIOSKEY",
       "name": "Demo",
-      "enabled": false,
+      "enabled": true,
       "expiresUtc": null
     }
   ]
